@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
+	"time"
 
 	"github.com/nats-io/nats"
 )
@@ -23,14 +25,50 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	msg := `echo "Started %s $(date)"; sleep 10; echo "Stopped %s $(date)"`
+	hello := func() {
+		out, err := exec.Command("powershell", "-c", fmt.Sprintf(msg, "hello", "hello")).Output()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("ran hello", string(out))
+	}
 	nc.Subscribe("foo", func(m *nats.Msg) {
-		fmt.Printf("Received a message: %s\n", string(m.Data))
+		log.Printf("Received a message: %s\n", string(m.Data))
+		hello()
 	})
+	nc.Flush()
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 
-	// Block until a signal is received.
-	s := <-c
-	fmt.Println("Got signal:", s)
-	nc.Close()
+	sleeper := make(chan bool, 1)
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+			sleeper <- true
+		}
+	}()
+
+	sleepy := func() {
+		out, err := exec.Command("powershell", "-c", fmt.Sprintf(msg, "sleepy", "sleepy")).Output()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("Slept for 10 seconds", string(out))
+	}
+
+	for {
+		fmt.Println("Looping...")
+		select {
+		case s := <-c:
+			fmt.Println("Got signal:", s)
+			nc.Close()
+			return
+		case <-sleeper:
+			fmt.Println("Staring to sleep")
+			sleepy()
+		}
+	}
+
 }
