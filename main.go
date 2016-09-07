@@ -26,6 +26,7 @@ func main() {
 		log.Fatal(err)
 	}
 	msg := `echo "Started %s $(date)"; sleep 10; echo "Stopped %s $(date)"`
+	dscService := `echo "Started %s $(date)"; Install-WindowsFeature DSC-Service; sleep 10; echo "Stopped %s $(date)"`
 	hello := func() {
 		out, err := exec.Command("powershell", "-c", fmt.Sprintf(msg, "hello", "hello")).Output()
 		if err != nil {
@@ -51,7 +52,7 @@ func main() {
 	}()
 
 	sleepy := func() {
-		out, err := exec.Command("powershell", "-c", fmt.Sprintf(msg, "sleepy", "sleepy")).Output()
+		out, err := exec.Command("powershell", "-c", fmt.Sprintf(dscService, "sleepy", "sleepy")).Output()
 		if err != nil {
 			log.Fatal(err)
 		}
